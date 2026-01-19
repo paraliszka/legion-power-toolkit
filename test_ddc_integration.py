@@ -154,7 +154,7 @@ def main():
         print("⚠️  DDC works but D-Bus service needs update")
         print()
         print("Run the update script:")
-        print("  cd /home/moodliszka/Desktop/repos/linux/power")
+        print("  cd path/to/legion-power-toolkit")
         print("  sudo ./scripts/update_backend.sh")
         return 1
     else:

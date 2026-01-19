@@ -26,7 +26,7 @@
 ### Krok 1: Zaktualizuj backend (wymaga sudo)
 
 ```bash
-cd /home/moodliszka/Desktop/repos/linux/power
+cd path/to/legion-power-toolkit
 sudo ./scripts/update_backend.sh
 ```
 
@@ -77,7 +77,7 @@ fi
 ### Test 1: Sprawdź czy backend wykrywa monitory
 
 ```bash
-cd /home/moodliszka/Desktop/repos/linux/power
+cd path/to/legion-power-toolkit
 python3 test_ddc_integration.py
 ```
 
@@ -140,6 +140,7 @@ sudo usermod -aG i2c $USER
 
 **Rozwiązanie:**
 ```bash
+cd path/to/legion-power-toolkit
 sudo ./scripts/update_backend.sh
 ```
 

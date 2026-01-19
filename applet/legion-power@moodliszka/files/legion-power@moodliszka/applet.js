@@ -373,6 +373,9 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this._displayId = displayId;
         this._seeking = false;
         this._step = .05;
+        this._setBrightnessTimeout = 0;
+        this._getBrightnessTimeout = 0;
+        this._gettingBrightness = false;
 
         this.connect("drag-begin", Lang.bind(this, function () {
             this._seeking = true;
@@ -390,6 +393,9 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this.tooltipText = monitorName;
         this.tooltip = new Tooltips.Tooltip(this.actor, this.tooltipText);
 
+        // Connect destroy handler for cleanup
+        this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
+
         // Get initial brightness
         this._getBrightness();
 
@@ -397,6 +403,18 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this.connect("value-changed", Lang.bind(this, this._sliderChanged));
 
         this.actor.show();
+    }
+
+    _onDestroy() {
+        // Clean up timeouts to prevent leaks
+        if (this._setBrightnessTimeout) {
+            GLib.source_remove(this._setBrightnessTimeout);
+            this._setBrightnessTimeout = 0;
+        }
+        if (this._getBrightnessTimeout) {
+            GLib.source_remove(this._getBrightnessTimeout);
+            this._getBrightnessTimeout = 0;
+        }
     }
 
     _sliderChanged(slider, value) {
@@ -425,8 +443,22 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         
         this._gettingBrightness = true;
 
+        // Safety timeout to prevent permanent lock if callback never executes
+        this._getBrightnessTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, Lang.bind(this, function() {
+            this._gettingBrightness = false;
+            this._getBrightnessTimeout = 0;
+            global.logWarning("Monitor brightness query timed out after 5s");
+            return false;
+        }));
+
         try {
             this._applet._legionProxy.GetMonitorBrightnessRemote(this._displayId, Lang.bind(this, function (brightness, error) {
+                // Clear safety timeout
+                if (this._getBrightnessTimeout) {
+                    GLib.source_remove(this._getBrightnessTimeout);
+                    this._getBrightnessTimeout = 0;
+                }
+                
                 this._gettingBrightness = false;
                 
                 if (error) {
@@ -437,6 +469,12 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
                 this.setValue(brightness / 100);
             }));
         } catch (e) {
+            // Clear safety timeout on synchronous error
+            if (this._getBrightnessTimeout) {
+                GLib.source_remove(this._getBrightnessTimeout);
+                this._getBrightnessTimeout = 0;
+            }
+            
             this._gettingBrightness = false;
             global.logError("Error getting monitor brightness: " + e);
         }

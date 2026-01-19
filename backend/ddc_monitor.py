@@ -10,6 +10,7 @@ import re
 import time
 from typing import List, Dict, Optional
 from dataclasses import dataclass
+from threading import Lock
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class DDCController:
         """Initialize DDC controller"""
         self._monitors_cache: Optional[List[DDCMonitor]] = None
         self._cache_timestamp: float = 0
+        self._command_locks: Dict[int, Lock] = {}  # Per-display locks for concurrency control
         self._check_ddcutil_available()
     
     def _check_ddcutil_available(self):
@@ -86,13 +88,14 @@ class DDCController:
         except Exception as e:
             raise DDCError(f"Failed to check ddcutil: {e}")
     
-    def _run_ddcutil(self, args: List[str], timeout: Optional[int] = None) -> str:
+    def _run_ddcutil(self, args: List[str], timeout: Optional[int] = None, display_id: Optional[int] = None) -> str:
         """
-        Run ddcutil command with timeout
+        Run ddcutil command with timeout and concurrency control
         
         Args:
             args: Command arguments (e.g., ['detect'])
             timeout: Timeout in seconds
+            display_id: Display ID for concurrency control (prevents multiple commands to same display)
             
         Returns:
             Command output as string
@@ -100,8 +103,19 @@ class DDCController:
         if timeout is None:
             timeout = self.DDCUTIL_TIMEOUT
         
-        cmd = ['ddcutil'] + args
+        # Acquire lock for this display to prevent concurrent commands
+        lock = None
+        if display_id is not None:
+            if display_id not in self._command_locks:
+                self._command_locks[display_id] = Lock()
+            lock = self._command_locks[display_id]
+            
+            # Try to acquire lock, fail fast if another command is running
+            if not lock.acquire(blocking=False):
+                raise DDCError(f"Another DDC command is already running for display {display_id}")
+        
         try:
+            cmd = ['ddcutil'] + args
             logger.debug(f"Running: {' '.join(cmd)}")
             result = subprocess.run(
                 cmd,
@@ -123,6 +137,10 @@ class DDCController:
         except Exception as e:
             logger.error(f"ddcutil command error: {e}")
             raise DDCError(f"ddcutil error: {e}")
+        finally:
+            # Always release lock
+            if lock is not None:
+                lock.release()
     
     def _parse_detect_output(self, output: str) -> List[DDCMonitor]:
         """
@@ -267,7 +285,7 @@ class DDCController:
         """
         try:
             # Run: ddcutil -d <id> getvcp 10
-            output = self._run_ddcutil(['-d', str(display_id), 'getvcp', '10'])
+            output = self._run_ddcutil(['-d', str(display_id), 'getvcp', '10'], display_id=display_id)
             
             # Parse output: "VCP code 0x10 (Brightness): current value = 100, max value = 100"
             match = re.search(r'current value\s*=\s*(\d+)', output)
@@ -297,19 +315,21 @@ class DDCController:
         Returns:
             True if successful, False otherwise
         """
-        # Clamp brightness to valid range
+        # Clamp brightness to valid range and log if clamped
+        original_brightness = brightness
         brightness = max(0, min(100, brightness))
+        if brightness != original_brightness:
+            logger.warning(f"Brightness value {original_brightness} clamped to {brightness} (valid range: 0-100)")
         
         try:
             # Run: ddcutil -d <id> setvcp 10 <brightness>
-            # Use --sleep-multiplier 0.1 for faster operation (risky but speeds up 10x)
-            # Use --noverify to skip verification (faster but less safe)
+            # Use --sleep-multiplier 0.5 for reasonable balance between speed and reliability
+            # (0.1 is too aggressive and can cause failures on some monitors)
             self._run_ddcutil([
                 '-d', str(display_id),
-                '--sleep-multiplier', '.1',
-                '--noverify',
+                '--sleep-multiplier', '.5',
                 'setvcp', '10', str(brightness)
-            ], timeout=2)
+            ], timeout=3, display_id=display_id)
             logger.info(f"Display {display_id} brightness set to {brightness}")
             return True
         

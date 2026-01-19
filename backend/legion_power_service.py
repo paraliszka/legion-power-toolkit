@@ -474,6 +474,12 @@ class LegionPowerService(dbus.service.Object):
         except Exception as e:
             logger.error(f"RefreshExternalMonitors failed: {e}")
     
+    @dbus.service.method('com.legion.Power.Manager',
+                         out_signature='b')
+    def IsDDCAvailable(self):
+        """Check if DDC/CI support is available"""
+        return self.ddc is not None
+    
     # ========================================
     # Signals
     # ========================================
