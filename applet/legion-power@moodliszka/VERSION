@@ -1,0 +1,44 @@
+Legion Power Manager Applet
+Version: 1.0.0
+UUID: legion-power@moodliszka
+Created: 2025-12-22
+
+FEATURES:
+- Complete replacement for power@cinnamon.org
+- All standard power management features
+- Legion-specific controls (Conservation, Rapid Charge, Fan Mode)
+- 1007 lines of production-ready JavaScript
+- Comprehensive documentation
+- Automated installation tools
+
+COMPATIBILITY:
+- Cinnamon: 4.x, 5.x, 6.x
+- Target: Cinnamon 6.x
+- Base: power@cinnamon.org (Cinnamon official applet)
+
+REQUIREMENTS:
+- Cinnamon Desktop Environment
+- UPower
+- cinnamon-settings-daemon
+- power-profiles-daemon (optional, for power profiles)
+- Legion Power D-Bus service (optional, for Legion features)
+
+FILES:
+- applet.js: 1007 lines
+- Documentation: 6 markdown files
+- Installation scripts: 2 bash scripts
+- Configuration: 3 files (metadata, settings, CSS)
+- Icon: 1 SVG file
+
+TOTAL: 13 files
+
+INSTALLATION:
+  cd /home/moodliszka/Desktop/repos/linux/power/applet/legion-power@moodliszka
+  ./install.sh
+
+DOCUMENTATION:
+  Start with QUICKSTART.md or INDEX.md
+
+AUTHOR: moodliszka
+LICENSE: GPL-2.0+ (same as Cinnamon)
+REPOSITORY: /home/moodliszka/Desktop/repos/linux/power/

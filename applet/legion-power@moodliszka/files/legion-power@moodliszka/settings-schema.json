@@ -1,0 +1,31 @@
+{
+    "labelinfo": {
+        "type": "combobox",
+        "description": "Display",
+        "default": "percentage",
+        "options" : {
+            "Show percentage": "percentage",
+            "Show time remaining": "time",
+            "Show percentage and time remaining": "percentage_time",
+            "Hide label": "nothing"
+        }
+    },
+    "showmulti" : {
+        "type" : "switch",
+        "default" : false,
+        "description": "Always show all batteries",
+        "tooltip": "Check this to always show multiple batteries in the panel, regardless of whether one of them is marked primary."
+    },
+    "show-legion-features" : {
+        "type" : "switch",
+        "default" : true,
+        "description": "Show Legion-specific features",
+        "tooltip": "Enable to show Conservation Mode, Rapid Charge, and Fan Mode controls"
+    },
+    "show-external-monitors" : {
+        "type" : "switch",
+        "default" : true,
+        "description": "Show external monitor brightness controls",
+        "tooltip": "Enable DDC/CI brightness control for external displays via ddcutil"
+    }
+}

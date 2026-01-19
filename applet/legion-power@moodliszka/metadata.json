@@ -1,0 +1,6 @@
+{
+ "uuid": "legion-power@moodliszka",
+ "name": "Legion Power Manager",
+ "description": "Complete power management applet with Legion-specific features (Conservation Mode, Rapid Charge, Fan Control)",
+ "icon": "cs-power"
+}

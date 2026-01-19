@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=com.legion.Power
+Exec=/usr/local/bin/legion-power-service
+User=root
+SystemdService=legion-power.service

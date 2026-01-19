@@ -1,0 +1,33 @@
+/* Legion Power Manager Applet Stylesheet */
+
+.popup-device-menu-item {
+    spacing: 12px;
+}
+
+.legion-section-header {
+    font-weight: bold;
+    padding: 8px 0px 4px 0px;
+}
+
+.legion-control-item {
+    spacing: 12px;
+}
+
+.legion-fan-mode-button {
+    min-width: 80px;
+    padding: 6px 12px;
+}
+
+.legion-warning {
+    color: #ff9800;
+    font-style: italic;
+    padding: 4px 0px;
+}
+
+.popup-menu-icon {
+    icon-size: 16px;
+}
+
+.popup-slider-menu-item {
+    spacing: 8px;
+}

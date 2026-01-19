@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Legion Power Manager
+Comment=Manage power settings for Lenovo Legion laptops
+Exec=python3 /home/moodliszka/Desktop/repos/linux/power/gui/legion_power_gui.py
+Icon=/home/moodliszka/Desktop/repos/linux/power/gui/assets/logo.svg
+Terminal=false
+Type=Application
+Categories=Settings;System;
+Keywords=battery;power;lenovo;legion;

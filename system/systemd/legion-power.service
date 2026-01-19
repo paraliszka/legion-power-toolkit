@@ -1,0 +1,19 @@
+[Unit]
+Description=Legion Power Management Service
+After=multi-user.target
+Wants=dbus.service
+
+[Service]
+Type=dbus
+BusName=com.legion.Power
+ExecStart=/usr/local/bin/legion-power-service
+Restart=on-failure
+RestartSec=5
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+Also=dbus.service

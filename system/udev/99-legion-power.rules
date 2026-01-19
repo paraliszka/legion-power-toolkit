@@ -1,0 +1,21 @@
+# Udev rules for Legion Power Manager
+# Grant access to Lenovo Legion power controls without sudo
+
+# VPC (Lenovo IdeaPad ACPI) device - allow users group access
+SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/chmod 0666 /sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/VPC2004:00/conservation_mode"
+
+SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/chmod 0666 /sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/VPC2004:00/fan_mode"
+
+SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/chmod 0666 /sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/VPC2004:00/camera_power"
+
+SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/chmod 0666 /sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/VPC2004:00/usb_charging"
+
+SUBSYSTEM=="platform", KERNEL=="VPC2004:00", \
+  RUN+="/bin/chmod 0666 /sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/VPC2004:00/fn_lock"
+
+# ACPI call device - allow users group access
+KERNEL=="acpi_call", MODE="0660", GROUP="users"

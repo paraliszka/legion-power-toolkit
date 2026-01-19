@@ -1,0 +1,12 @@
+[Unit]
+Description=Restore Legion Power Settings on Boot
+After=legion-power.service
+Requires=legion-power.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dbus-send --system --print-reply --dest=com.legion.Power /com/legion/Power com.legion.Power.Manager.GetSettings
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
