@@ -373,9 +373,6 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this._displayId = displayId;
         this._seeking = false;
         this._step = .05;
-        this._setBrightnessTimeout = 0;
-        this._getBrightnessTimeout = 0;
-        this._gettingBrightness = false;
 
         this.connect("drag-begin", Lang.bind(this, function () {
             this._seeking = true;
@@ -393,9 +390,6 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this.tooltipText = monitorName;
         this.tooltip = new Tooltips.Tooltip(this.actor, this.tooltipText);
 
-        // Connect destroy handler for cleanup
-        this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
-
         // Get initial brightness
         this._getBrightness();
 
@@ -403,18 +397,6 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this.connect("value-changed", Lang.bind(this, this._sliderChanged));
 
         this.actor.show();
-    }
-
-    _onDestroy() {
-        // Clean up timeouts to prevent leaks
-        if (this._setBrightnessTimeout) {
-            GLib.source_remove(this._setBrightnessTimeout);
-            this._setBrightnessTimeout = 0;
-        }
-        if (this._getBrightnessTimeout) {
-            GLib.source_remove(this._getBrightnessTimeout);
-            this._getBrightnessTimeout = 0;
-        }
     }
 
     _sliderChanged(slider, value) {
@@ -443,22 +425,8 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         
         this._gettingBrightness = true;
 
-        // Safety timeout to prevent permanent lock if callback never executes
-        this._getBrightnessTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, Lang.bind(this, function() {
-            this._gettingBrightness = false;
-            this._getBrightnessTimeout = 0;
-            global.logWarning("Monitor brightness query timed out after 5s");
-            return false;
-        }));
-
         try {
             this._applet._legionProxy.GetMonitorBrightnessRemote(this._displayId, Lang.bind(this, function (brightness, error) {
-                // Clear safety timeout
-                if (this._getBrightnessTimeout) {
-                    GLib.source_remove(this._getBrightnessTimeout);
-                    this._getBrightnessTimeout = 0;
-                }
-                
                 this._gettingBrightness = false;
                 
                 if (error) {
@@ -469,12 +437,6 @@ class MonitorBrightnessSlider extends PopupMenu.PopupSliderMenuItem {
                 this.setValue(brightness / 100);
             }));
         } catch (e) {
-            // Clear safety timeout on synchronous error
-            if (this._getBrightnessTimeout) {
-                GLib.source_remove(this._getBrightnessTimeout);
-                this._getBrightnessTimeout = 0;
-            }
-            
             this._gettingBrightness = false;
             global.logError("Error getting monitor brightness: " + e);
         }
@@ -673,9 +635,24 @@ class LegionPowerApplet extends Applet.TextIconApplet {
         try {
             let LegionInterface = `<node>
               <interface name="com.legion.Power.Manager">
-                <property name="ConservationMode" type="b" access="readwrite" />
-                <property name="RapidCharge" type="b" access="readwrite" />
-                <property name="FanMode" type="i" access="readwrite" />
+                <method name="GetConservationMode">
+                  <arg type="b" direction="out" name="enabled" />
+                </method>
+                <method name="SetConservationMode">
+                  <arg type="b" direction="in" name="enable" />
+                </method>
+                <method name="GetRapidCharge">
+                  <arg type="b" direction="out" name="enabled" />
+                </method>
+                <method name="SetRapidCharge">
+                  <arg type="b" direction="in" name="enable" />
+                </method>
+                <method name="GetFanMode">
+                  <arg type="s" direction="out" name="mode" />
+                </method>
+                <method name="SetFanMode">
+                  <arg type="s" direction="in" name="mode" />
+                </method>
                 <method name="GetExternalMonitors">
                   <arg type="aa{sv}" direction="out" name="monitors" />
                 </method>
@@ -689,9 +666,6 @@ class LegionPowerApplet extends Applet.TextIconApplet {
                 </method>
                 <method name="RefreshExternalMonitors">
                 </method>
-                <signal name="PropertiesChanged">
-                  <arg name="properties" type="a{sv}" />
-                </signal>
                 <signal name="MonitorBrightnessChanged">
                   <arg name="display_id" type="i" />
                   <arg name="brightness" type="i" />
@@ -710,8 +684,8 @@ class LegionPowerApplet extends Applet.TextIconApplet {
             let headerItem = new PopupMenu.PopupMenuItem(_("Legion Controls"), { reactive: false, style_class: 'legion-section-header' });
             this._legionSection.addMenuItem(headerItem);
 
-            // Conservation Mode toggle
-            this._conservationSwitch = new PopupMenu.PopupSwitchMenuItem(_("Conservation Mode"));
+            // Conservation Mode toggle with explanation
+            this._conservationSwitch = new PopupMenu.PopupSwitchMenuItem(_("Conservation Mode (limits charge to ~60%)"));
             this._conservationSwitch.connect('toggled', Lang.bind(this, this._onConservationToggled));
             this._legionSection.addMenuItem(this._conservationSwitch);
 
@@ -923,23 +897,29 @@ class LegionPowerApplet extends Applet.TextIconApplet {
             return;
 
         try {
-            let conservation = this._legionProxy.ConservationMode;
-            let rapidCharge = this._legionProxy.RapidCharge;
-            let fanMode = this._legionProxy.FanMode;
-
-            // Update switches without triggering signals
-            this._conservationSwitch.setToggleState(conservation);
-            this._rapidChargeSwitch.setToggleState(rapidCharge);
-
-            // Update fan mode selection
-            if (this._fanModeSection) {
-                let items = this._fanModeSection._getMenuItems();
-                for (let i = 0; i < items.length; i++) {
-                    if (items[i]._fanMode !== undefined) {
-                        items[i].setShowDot(items[i]._fanMode === fanMode);
+            // Use D-Bus methods instead of properties
+            this._legionProxy.GetConservationModeRemote(Lang.bind(this, function(conservation, error) {
+                if (!error) {
+                    this._conservationSwitch.setToggleState(conservation);
+                }
+            }));
+            
+            this._legionProxy.GetRapidChargeRemote(Lang.bind(this, function(rapidCharge, error) {
+                if (!error) {
+                    this._rapidChargeSwitch.setToggleState(rapidCharge);
+                }
+            }));
+            
+            this._legionProxy.GetFanModeRemote(Lang.bind(this, function(fanMode, error) {
+                if (!error && this._fanModeSection) {
+                    let items = this._fanModeSection._getMenuItems();
+                    for (let i = 0; i < items.length; i++) {
+                        if (items[i]._fanMode !== undefined) {
+                            items[i].setShowDot(items[i]._fanMode === fanMode);
+                        }
                     }
                 }
-            }
+            }));
         } catch (e) {
             global.logError("Legion Power: Error updating controls: " + e);
         }
@@ -950,11 +930,12 @@ class LegionPowerApplet extends Applet.TextIconApplet {
             return;
 
         try {
-            // MUTEX: If enabling conservation, disable rapid charge
-            if (state && this._legionProxy.RapidCharge) {
-                this._legionProxy.RapidCharge = false;
-            }
-            this._legionProxy.ConservationMode = state;
+            // Use D-Bus method instead of property
+            this._legionProxy.SetConservationModeRemote(state, Lang.bind(this, function(error) {
+                if (error) {
+                    global.logError("Legion Power: Error setting conservation mode: " + error);
+                }
+            }));
         } catch (e) {
             global.logError("Legion Power: Error setting conservation mode: " + e);
         }
@@ -965,11 +946,12 @@ class LegionPowerApplet extends Applet.TextIconApplet {
             return;
 
         try {
-            // MUTEX: If enabling rapid charge, disable conservation
-            if (state && this._legionProxy.ConservationMode) {
-                this._legionProxy.ConservationMode = false;
-            }
-            this._legionProxy.RapidCharge = state;
+            // Use D-Bus method instead of property
+            this._legionProxy.SetRapidChargeRemote(state, Lang.bind(this, function(error) {
+                if (error) {
+                    global.logError("Legion Power: Error setting rapid charge: " + error);
+                }
+            }));
         } catch (e) {
             global.logError("Legion Power: Error setting rapid charge: " + e);
         }
@@ -980,7 +962,12 @@ class LegionPowerApplet extends Applet.TextIconApplet {
             return;
 
         try {
-            this._legionProxy.FanMode = mode;
+            // Use D-Bus method instead of property
+            this._legionProxy.SetFanModeRemote(mode, Lang.bind(this, function(error) {
+                if (error) {
+                    global.logError("Legion Power: Error setting fan mode: " + error);
+                }
+            }));
         } catch (e) {
             global.logError("Legion Power: Error setting fan mode: " + e);
         }
